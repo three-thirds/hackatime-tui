@@ -1,4 +1,4 @@
-module github.com/Willgob/Hackatime-Tui
+module github.com/three-thirds/hackatime-tui
 
 go 1.26.7
 
