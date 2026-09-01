@@ -1,3 +1,11 @@
+package api
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+)
+
 type Client struct {
 	creds      *Creds
 	httpClient *http.Client
