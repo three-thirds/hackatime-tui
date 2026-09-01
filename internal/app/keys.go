@@ -1,7 +1,9 @@
 // This file contains all keybinds required for TUI
 package app
 
-import "github.com/charmbracelet/bubbles/key"
+import (
+	"charm.land/bubbles/v2/key"
+)
 
 type KeyMap struct {
 	Up       key.Binding
