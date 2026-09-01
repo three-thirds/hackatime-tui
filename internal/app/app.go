@@ -1,6 +1,8 @@
 package app
 
 import (
+	"fmt"
+
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
@@ -92,10 +94,8 @@ func (m AppModel) View() tea.View {
 	deck := m.Viewport.View()
 
 	scrollPercent := int(m.Viewport.ScrollPercent() * 100)
-	footer := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240")).
-		Render(lipgloss.PlaceHorizontal(m.Width, lipgloss.Right,
-			lipgloss.Sprintf("Scroll: %d%% │ [j/k/↑/↓] Scroll │ [h/l/Tab] Nav │ [q] Quit ", scrollPercent)))
+	footer := DimText.Render(lipgloss.PlaceHorizontal(m.Width, lipgloss.Right,
+		fmt.Sprintf("Scroll: %d%% │ [j/k/↑/↓] Scroll │ [h/l/Tab] Nav │ [q] Quit ", scrollPercent)))
 
 	fullUI := lipgloss.JoinVertical(lipgloss.Left, header, deck, footer)
 

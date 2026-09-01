@@ -10,7 +10,7 @@ import (
 var (
 	headerBorderStyle = lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("240"))
+				BorderForeground(lipgloss.Color("#EB6F92"))
 
 	cardStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
@@ -19,7 +19,7 @@ var (
 
 	accentStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("212"))
+			Foreground(lipgloss.Color("#44475A"))
 
 	dimStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("242"))
@@ -34,18 +34,23 @@ func renderFixedHeader(width int, currentTab int) string {
 	leftColWidth := 22
 	rightColWidth := max(contentWidth-leftColWidth-3, 20)
 
-	profileBox := lipgloss.NewStyle().Width(leftColWidth).Render("User \n[0 day streak]")
-	greetingBox := lipgloss.NewStyle().Width(rightColWidth).Render("Keep Track of Your Coding Time\nToday: 0h 00m logged using Neovim & VSCode")
+	profileContent := fmt.Sprintf("[●] User\n%s", StreakStyle.Render("[0 day streak]"))
+	profileBox := lipgloss.NewStyle().Width(leftColWidth).Render(profileContent)
+
+	todayTime := MetricValueStyle.Render("0h 00m")
+	greetingContent := fmt.Sprintf("Keep Track of Your Coding Time\nToday: %s logged using Neovim & VSCode", todayTime)
+	greetingBox := lipgloss.NewStyle().Width(rightColWidth).Render(greetingContent)
+
 	topRow := lipgloss.JoinHorizontal(lipgloss.Top, profileBox, " | ", greetingBox)
 
-	divider := dimStyle.Render(strings.Repeat("-", max(0, contentWidth)))
+	divider := DimText.Render(strings.Repeat("─", max(0, contentWidth)))
 
 	tabNames := []string{"Home", "Project", "Settings"}
 	var navLines strings.Builder
 	for i, name := range tabNames {
-		line := fmt.Sprintf("   %s", name)
+		line := DimText.Render(fmt.Sprintf("  %s", name))
 		if i == currentTab {
-			line = accentStyle.Render(fmt.Sprintf("> [%s]", name))
+			line = ActiveTabStyle.Render(fmt.Sprintf("> [%s]", name))
 		}
 		if i > 0 {
 			navLines.WriteString("\n")
@@ -55,9 +60,7 @@ func renderFixedHeader(width int, currentTab int) string {
 	}
 	navBox := lipgloss.NewStyle().Width(leftColWidth).Render(navLines.String())
 
-	filterBar := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("75")).
-		Render("[Date: All Time ▾] [Project: All ▾] [Lang: All ▾] [OS: All ▾] [Editor: All ▾]")
+	filterBar := FilterBarStyle.Render("[Date: All Time ▾] [Project: All ▾] [Lang: All ▾] [OS: All ▾] [Editor: All ▾]")
 
 	cardW := max((rightColWidth-8)/5, 10)
 
@@ -76,7 +79,7 @@ func renderFixedHeader(width int, currentTab int) string {
 }
 
 func renderCard(title, val string, width int) string {
-	t := dimStyle.Render(title)
-	v := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255")).Render(val)
-	return cardStyle.Width(width).Render(fmt.Sprintf("%s\n%s", t, v))
+	t := MetricTitleStyle.Render(title)
+	v := MetricValueStyle.Render(val)
+	return CardBorder.Width(width).Render(fmt.Sprintf("%s\n%s", t, v))
 }
