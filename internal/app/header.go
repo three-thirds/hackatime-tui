@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
-	"golang.org/x/text/width"
 )
 
 var (
@@ -33,11 +32,7 @@ func renderFixedHeader(width int, currentTab int) string {
 
 	contentWidth := width - 4
 	leftColWidth := 22
-	rightColWidth := contentWidth - leftColWidth - 3
-
-	if rightColWidth < 20 {
-		rightColWidth = 20
-	}
+	rightColWidth := max(contentWidth-leftColWidth-3, 20)
 
 	profileBox := lipgloss.NewStyle().Width(leftColWidth).Render("User \n[0 day streak]")
 	greetingBox := lipgloss.NewStyle().Width(rightColWidth).Render("Keep Track of Your Coding Time\nToday: 0h 00m logged using Neovim & VSCode")
@@ -46,28 +41,25 @@ func renderFixedHeader(width int, currentTab int) string {
 	divider := dimStyle.Render(strings.Repeat("-", max(0, contentWidth)))
 
 	tabNames := []string{"Home", "Project", "Settings"}
-	var navLines string
+	var navLines strings.Builder
 	for i, name := range tabNames {
 		line := fmt.Sprintf("   %s", name)
 		if i == currentTab {
 			line = accentStyle.Render(fmt.Sprintf("> [%s]", name))
 		}
 		if i > 0 {
-			navLines += "\n"
+			navLines.WriteString("\n")
 		}
-		navLines += line
+		navLines.WriteString(line)
 
 	}
-	navBox := lipgloss.NewStyle().Width(leftColWidth).Render(navLines)
+	navBox := lipgloss.NewStyle().Width(leftColWidth).Render(navLines.String())
 
 	filterBar := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("75")).
 		Render("[Date: All Time ▾] [Project: All ▾] [Lang: All ▾] [OS: All ▾] [Editor: All ▾]")
 
-	cardW := (rightColWidth - 8) / 5
-	if cardW < 10 {
-		cardW = 10
-	}
+	cardW := max((rightColWidth-8)/5, 10)
 
 	c1 := renderCard("TOTAL TIME", "--h --m", cardW)
 	c2 := renderCard("TOP PROJECT", "--", cardW)
