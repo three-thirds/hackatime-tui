@@ -4,9 +4,12 @@ import (
 	"fmt"
 )
 
+// RenderSlot draws a bordered wireframe container with sizing labels.
+// It clamps minimum width and height to prevent Lipgloss layout panics
+// on small terminal screens.
 func RenderSlot(title string, width, height int, hint string) string {
-	boxW := width - 4
-	boxH := height - 2
+	boxW := width
+	boxH := height
 	if boxW < 10 {
 		boxW = 10
 	}
@@ -14,6 +17,7 @@ func RenderSlot(title string, width, height int, hint string) string {
 		boxH = 3
 	}
 
+	// TODO: Replace placeholder text later
 	titleText := SlotTitleStyle.Render(fmt.Sprintf("─ %s ", title))
 	dimText := DimText.Render(fmt.Sprintf("(w: %d, h: %d)", width, height))
 	instructions := DimText.Render(fmt.Sprintf("\n[Widget Slot] %s", hint))

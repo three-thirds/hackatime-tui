@@ -1,3 +1,5 @@
+// Package app manages the root state machine, viewport layout,
+// and keyboard navigation for the dashboard interface
 package app
 
 import (
@@ -9,12 +11,14 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
+// AppModel holds important central state of entire applications
+// it includes dimensions of terminal, currently active Tab, state of viewport, etc.
 type AppModel struct {
-	Width      int
-	Height     int
-	CurrentTab int
-	Viewport   viewport.Model
-	Ready      bool
+	Width      int            // Width of terminal screen
+	Height     int            // Height of terminal screen
+	CurrentTab int            // Currently selected tab on TUI
+	Viewport   viewport.Model // State of viewport
+	Ready      bool           // Whether the app is ready to be rendered or not
 }
 
 func NewApp() AppModel {
@@ -27,6 +31,8 @@ func (m AppModel) Init() tea.Cmd {
 	return nil
 }
 
+// Update handles incoming Bubble Tea messages, including terminal window resizing,
+// tab navigation keypresses, and viewport scrolling events.
 func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -83,6 +89,8 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+// View renders the complete terminal user interface, assembling the pinned
+// top header, the scrollable widget deck, and the status footer.
 func (m AppModel) View() tea.View {
 	if !m.Ready {
 		v := tea.NewView("Initializing Wireframe...")
@@ -105,9 +113,11 @@ func (m AppModel) View() tea.View {
 	return view
 }
 
+// renderDeck builds the scrollable wireframe slot grid, calculating equal
+// half-width and full-width card dimensions to match the terminal bounds.
 func (m AppModel) renderDeck() string {
-	fullW := m.Width - 2
-	halfW := fullW / 2
+	halfW := m.Width / 2
+	fullW := halfW * 2
 
 	r1Left := RenderSlot("Project Durations", halfW, 9, "Horizontal bar chart of Projects")
 	r1Right := RenderSlot("Languages", halfW, 9, "Language % breakdown bar chart")

@@ -1,3 +1,8 @@
+// This file consists with the logic to render Header
+// the header has user info, filtering options, navigation between
+// different tabs
+//
+
 package app
 
 import (
@@ -7,33 +12,20 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-var (
-	headerBorderStyle = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("#EB6F92"))
-
-	cardStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("238")).
-			Padding(0, 1)
-
-	accentStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#44475A"))
-
-	dimStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("242"))
-)
-
+// renderFixedHeader renders the Header with the info about width and currently selectedTab
+// this info is supposed to be received from central state model `AppModel`
+// It returns the widget string with user Info, filter tabs, navigation panels and high level summaries.
 func renderFixedHeader(width int, currentTab int) string {
 	if width < 50 {
 		return "Terminal width is too small"
 	}
 
+	// basic layout info, calculated based on terminal's width
 	contentWidth := width - 4
 	leftColWidth := 22
 	rightColWidth := max(contentWidth-leftColWidth-3, 20)
 
+	// TODO(chish/devaansh): Replace placeholder plaintext strings with data pulled from API
 	profileContent := fmt.Sprintf("[●] User\n%s", StreakStyle.Render("[0 day streak]"))
 	profileBox := lipgloss.NewStyle().Width(leftColWidth).Render(profileContent)
 
@@ -45,6 +37,8 @@ func renderFixedHeader(width int, currentTab int) string {
 
 	divider := DimText.Render(strings.Repeat("─", max(0, contentWidth)))
 
+	// The navigation builder, it renders the navigation list, only three, I don't think
+	// we would ever need to add or remove any of these.
 	tabNames := []string{"Home", "Project", "Settings"}
 	var navLines strings.Builder
 	for i, name := range tabNames {
@@ -62,6 +56,7 @@ func renderFixedHeader(width int, currentTab int) string {
 
 	filterBar := FilterBarStyle.Render("[Date: All Time ▾] [Project: All ▾] [Lang: All ▾] [OS: All ▾] [Editor: All ▾]")
 
+	// clamps the width of card to atleast 10 to avoid panic
 	cardW := max((rightColWidth-8)/5, 10)
 
 	c1 := renderCard("TOTAL TIME", "--h --m", cardW)
@@ -75,9 +70,12 @@ func renderFixedHeader(width int, currentTab int) string {
 	middleRow := lipgloss.JoinHorizontal(lipgloss.Top, navBox, " │ ", rightBlock)
 
 	fullHeader := lipgloss.JoinVertical(lipgloss.Left, topRow, divider, middleRow)
-	return headerBorderStyle.Width(width - 2).Render(fullHeader)
+	headerWidth := (width / 2) * 2
+	return HeaderBorder.Width(headerWidth).Render(fullHeader)
 }
 
+// renderCard draws simple cards with title and value
+// returns a small card, which can be later added into a deck
 func renderCard(title, val string, width int) string {
 	t := MetricTitleStyle.Render(title)
 	v := MetricValueStyle.Render(val)

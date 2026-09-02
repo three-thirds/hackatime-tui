@@ -1,3 +1,7 @@
+// This file stores all the color related information
+//
+//
+
 package app
 
 import "charm.land/lipgloss/v2"
@@ -58,4 +62,22 @@ var (
 
 	StreakStyle = lipgloss.NewStyle().
 			Foreground(DraculaOrange)
+
+	FilterInactiveStyle = lipgloss.NewStyle().
+				Foreground(DraculaCyan).
+				Padding(0, 1)
+
+	// Active/Focused filter button (Highlighted background + Pink text)
+	FilterActiveStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(DraculaPink).
+				Background(DraculaSelection).
+				Padding(0, 1)
+
+	// Focused Zone indicator badge for Header
+	FocusedBadgeStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(DraculaBg).
+				Background(DraculaPurple).
+				Padding(0, 1)
 )

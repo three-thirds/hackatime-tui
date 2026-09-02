@@ -1,10 +1,16 @@
-// This file contains all keybinds required for TUI
+// This file stores keybinds for entire application
+// So if anybody wants to add a new functionality with a keybind following is the procedure
+// Define a functionality in KeyMap, then map the functionality with Keys in var Keys
+
 package app
 
 import (
 	"charm.land/bubbles/v2/key"
 )
 
+// KeyMap holds various different possible keys which would be
+// required by TUI, Is not really supposed to be changed...
+// TODO: Maybe we could add Search Binding here
 type KeyMap struct {
 	Up       key.Binding
 	Down     key.Binding
@@ -17,6 +23,7 @@ type KeyMap struct {
 	Quit     key.Binding
 }
 
+// Keys initializes the struct values with actual keyboard binds
 var Keys = KeyMap{
 	Up: key.NewBinding(
 		key.WithKeys("k", "up"),
