@@ -14,6 +14,8 @@ import (
 type KeyMap struct {
 	Up       key.Binding
 	Down     key.Binding
+	Left     key.Binding
+	Right    key.Binding
 	PageUp   key.Binding
 	PageDown key.Binding
 	Top      key.Binding
@@ -33,6 +35,14 @@ var Keys = KeyMap{
 		key.WithKeys("j", "down"),
 		key.WithHelp("j/↓", "scroll down"),
 	),
+	Left: key.NewBinding(
+		key.WithKeys("h", "left"),
+		key.WithHelp("k/↑", "move left"),
+	),
+	Right: key.NewBinding(
+		key.WithKeys("l", "right"),
+		key.WithHelp("j/↓", "move right"),
+	),
 	PageUp: key.NewBinding(
 		key.WithKeys("ctrl+u", "u", "pgup"),
 		key.WithHelp("ctrl+u/u/pgup", "page up"),
@@ -50,11 +60,11 @@ var Keys = KeyMap{
 		key.WithHelp("G/end", "bottom"),
 	),
 	TabNext: key.NewBinding(
-		key.WithKeys("tab", "l", "right"),
+		key.WithKeys("tab"),
 		key.WithHelp("tab/l", "next tab"),
 	),
 	TabPrev: key.NewBinding(
-		key.WithKeys("shift+tab", "h", "left"),
+		key.WithKeys("shift+tab"),
 		key.WithHelp("shift+tab/h", "prev tab"),
 	),
 	Quit: key.NewBinding(

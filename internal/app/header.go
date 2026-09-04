@@ -15,7 +15,7 @@ import (
 // renderFixedHeader renders the Header with the info about width and currently selectedTab
 // this info is supposed to be received from central state model `AppModel`
 // It returns the widget string with user Info, filter tabs, navigation panels and high level summaries.
-func renderFixedHeader(width int, currentTab int) string {
+func renderFixedHeader(width int, currentTab int, activeZone ActiveZone, activeFilter int) string {
 	if width < 50 {
 		return "Terminal width is too small"
 	}
@@ -54,10 +54,29 @@ func renderFixedHeader(width int, currentTab int) string {
 	}
 	navBox := lipgloss.NewStyle().Width(leftColWidth).Render(navLines.String())
 
-	filterBar := FilterBarStyle.Render("[Date: All Time ▾] [Project: All ▾] [Lang: All ▾] [OS: All ▾] [Editor: All ▾]")
+	filters := []string{
+		"Date: All Time ▾",
+		"Project: All ▾",
+		"Lang: All ▾",
+		"OS: All ▾",
+		"Editor: All ▾",
+	}
 
 	// clamps the width of card to atleast 10 to avoid panic
 	cardW := max((rightColWidth-8)/5, 10)
+
+	var renderedFilter []string
+	for i, name := range filters {
+		if i == activeFilter && activeZone == FocusFilter {
+			styled := ActiveTabStyle.Render(fmt.Sprintf("[%s]", name))
+			renderedFilter = append(renderedFilter, styled)
+		} else {
+			styled := FilterBarStyle.Render(fmt.Sprintf("[%s]", name))
+			renderedFilter = append(renderedFilter, styled)
+		}
+	}
+
+	filterBar := strings.Join(renderedFilter, " ")
 
 	c1 := renderCard("TOTAL TIME", "--h --m", cardW)
 	c2 := renderCard("TOP PROJECT", "--", cardW)

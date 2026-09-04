@@ -14,16 +14,27 @@ import (
 // AppModel holds important central state of entire applications
 // it includes dimensions of terminal, currently active Tab, state of viewport, etc.
 type AppModel struct {
-	Width      int            // Width of terminal screen
-	Height     int            // Height of terminal screen
-	CurrentTab int            // Currently selected tab on TUI
-	Viewport   viewport.Model // State of viewport
-	Ready      bool           // Whether the app is ready to be rendered or not
+	Width        int            // Width of terminal screen
+	Height       int            // Height of terminal screen
+	CurrentTab   int            // Currently selected tab on TUI
+	Viewport     viewport.Model // State of viewport
+	Ready        bool           // Whether the app is ready to be rendered or not
+	ActiveZone   ActiveZone
+	ActiveFilter int
 }
+
+type ActiveZone int
+
+const (
+	FocusNav ActiveZone = iota
+	FocusFilter
+	FocusDeck
+)
 
 func NewApp() AppModel {
 	return AppModel{
 		CurrentTab: 0,
+		ActiveZone: FocusNav,
 	}
 }
 
@@ -41,7 +52,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Width = msg.Width
 		m.Height = msg.Height
 
-		headerContent := renderFixedHeader(m.Width, m.CurrentTab)
+		headerContent := renderFixedHeader(m.Width, m.CurrentTab, m.ActiveZone, m.ActiveFilter)
 		headerHeight := lipgloss.Height(headerContent)
 
 		footerHeight := 1
@@ -59,32 +70,62 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyPressMsg:
-		switch {
-		case key.Matches(msg, Keys.Quit):
+		if key.Matches(msg, Keys.Quit) {
 			return m, tea.Quit
-
-		case key.Matches(msg, Keys.TabNext):
-			m.CurrentTab = (m.CurrentTab + 1) % 3
-			m.Viewport.SetContent(m.renderDeck())
+		}
+		if key.Matches(msg, Keys.TabNext) {
+			m.ActiveZone = (m.ActiveZone + 1) % 3
 			return m, nil
-
-		case key.Matches(msg, Keys.TabPrev):
-			if m.CurrentTab == 0 {
-				m.CurrentTab = 2
-			} else {
-				m.CurrentTab--
-			}
-			m.Viewport.SetContent(m.renderDeck())
-			return m, nil
-
-		case key.Matches(msg, Keys.Up), key.Matches(msg, Keys.Down),
-			key.Matches(msg, Keys.PageUp), key.Matches(msg, Keys.PageDown),
-			key.Matches(msg, Keys.Top), key.Matches(msg, Keys.Bottom):
-
-			m.Viewport, cmd = m.Viewport.Update(msg)
-			return m, cmd
+		}
+		switch m.ActiveZone {
+		case FocusNav:
+			return m.handleNavKeys(msg)
+		case FocusFilter:
+			return m.handleFilterKeys(msg)
+		case FocusDeck:
+			return m.handleDeckKeys(msg)
 		}
 	}
+	return m, cmd
+}
+
+func (m AppModel) handleNavKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, Keys.Down):
+		m.CurrentTab = (m.CurrentTab + 1) % 3
+		m.Viewport.SetContent(m.renderDeck())
+		return m, nil
+
+	case key.Matches(msg, Keys.Up):
+		if m.CurrentTab == 0 {
+			m.CurrentTab = 2
+		} else {
+			m.CurrentTab--
+		}
+		m.Viewport.SetContent(m.renderDeck())
+		return m, nil
+	}
+
+	return m, nil
+}
+
+func (m AppModel) handleFilterKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, Keys.Right):
+		m.ActiveFilter = (m.ActiveFilter + 1) % 5
+
+	case key.Matches(msg, Keys.Left):
+		if m.ActiveFilter <= 0 {
+			m.ActiveFilter = 4
+		} else {
+			m.ActiveFilter--
+		}
+	}
+	return m, nil
+}
+
+func (m AppModel) handleDeckKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
 	m.Viewport, cmd = m.Viewport.Update(msg)
 	return m, cmd
 }
@@ -98,7 +139,7 @@ func (m AppModel) View() tea.View {
 		return v
 	}
 
-	header := renderFixedHeader(m.Width, m.CurrentTab)
+	header := renderFixedHeader(m.Width, m.CurrentTab, m.ActiveZone, m.ActiveFilter)
 	deck := m.Viewport.View()
 
 	scrollPercent := int(m.Viewport.ScrollPercent() * 100)

@@ -1,5 +1,8 @@
 // This file will store the shape of data required for app to function properly
 // @Willgob will use this definitions to parse his JSON
+//
+
+// Package model holds shape of data structures required by backend
 package model
 
 import "time"
@@ -13,7 +16,7 @@ const (
 )
 
 type FilterState struct {
-	DateRange string //let's just keep it till today, yesterday, last week and all time
+	DateRange string // let's just keep it till today, yesterday, last week and all time
 	Project   string //"All" or type in project name maybe...
 	Language  string
 	OS        string
@@ -39,7 +42,7 @@ type HeatmapDay struct {
 	Level    int // 0 to 4 (for color intensity: 0=dim/empty, 4=brightest)
 }
 
-// The main data structure for app state
+// DashboardData main data structure for app state
 type DashboardData struct {
 	Username     string
 	CountryFlag  string
