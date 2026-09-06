@@ -14,13 +14,16 @@ import (
 // AppModel holds important central state of entire applications
 // it includes dimensions of terminal, currently active Tab, state of viewport, etc.
 type AppModel struct {
-	Width        int            // Width of terminal screen
-	Height       int            // Height of terminal screen
-	CurrentTab   int            // Currently selected tab on TUI
-	Viewport     viewport.Model // State of viewport
-	Ready        bool           // Whether the app is ready to be rendered or not
-	ActiveZone   ActiveZone
-	ActiveFilter int
+	Width          int            // Width of terminal screen
+	Height         int            // Height of terminal screen
+	CurrentTab     int            // Currently selected tab on TUI
+	Viewport       viewport.Model // State of viewport
+	Ready          bool           // Whether the app is ready to be rendered or not
+	ActiveZone     ActiveZone     // Currently Focused interative area
+	ActiveFilter   int            // Currently focused filter button
+	FilterValues   [5]string      // Commited selection for each filter
+	DropdownOpen   bool           // Whether the options dropdown is open
+	DropdownCursor int            // Selected index inside the open dropdown
 }
 
 type ActiveZone int
@@ -33,8 +36,16 @@ const (
 
 func NewApp() AppModel {
 	return AppModel{
-		CurrentTab: 0,
-		ActiveZone: FocusNav,
+		CurrentTab:   0,
+		ActiveZone:   FocusNav,
+		ActiveFilter: 0,
+		FilterValues: [5]string{
+			"Last 7 Days",
+			"All",
+			"All",
+			"All",
+			"All",
+		},
 	}
 }
 
@@ -52,9 +63,17 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Width = msg.Width
 		m.Height = msg.Height
 
-		headerContent := renderFixedHeader(m.Width, m.CurrentTab, m.ActiveZone, m.ActiveFilter)
-		headerHeight := lipgloss.Height(headerContent)
+		headerContent := renderFixedHeader(
+			m.Width,
+			m.CurrentTab,
+			m.ActiveZone,
+			m.ActiveFilter,
+			m.FilterValues,
+			m.DropdownOpen,
+			m.DropdownCursor,
+		)
 
+		headerHeight := lipgloss.Height(headerContent)
 		footerHeight := 1
 		viewportHeight := max(m.Height-headerHeight-footerHeight, 5)
 
@@ -110,6 +129,27 @@ func (m AppModel) handleNavKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m AppModel) handleFilterKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	options := getFilterOptions(m.ActiveFilter)
+
+	if m.DropdownOpen {
+		switch {
+		case key.Matches(msg, Keys.Down):
+			m.DropdownCursor = (m.DropdownCursor + 1) % len(options)
+		case key.Matches(msg, Keys.Up):
+			if m.DropdownCursor <= 0 {
+				m.DropdownCursor = len(options) - 1
+			} else {
+				m.DropdownCursor--
+			}
+		case key.Matches(msg, Keys.Select):
+			m.FilterValues[m.ActiveFilter] = options[m.DropdownCursor]
+			m.DropdownOpen = false
+
+		case key.Matches(msg, Keys.Cancel):
+			m.DropdownOpen = false
+		}
+		return m, nil
+	}
 	switch {
 	case key.Matches(msg, Keys.Right):
 		m.ActiveFilter = (m.ActiveFilter + 1) % 5
@@ -120,6 +160,10 @@ func (m AppModel) handleFilterKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		} else {
 			m.ActiveFilter--
 		}
+
+	case key.Matches(msg, Keys.Select):
+		m.DropdownOpen = true
+		m.DropdownCursor = 0
 	}
 	return m, nil
 }
@@ -139,7 +183,16 @@ func (m AppModel) View() tea.View {
 		return v
 	}
 
-	header := renderFixedHeader(m.Width, m.CurrentTab, m.ActiveZone, m.ActiveFilter)
+	header := renderFixedHeader(
+		m.Width,
+		m.CurrentTab,
+		m.ActiveZone,
+		m.ActiveFilter,
+		m.FilterValues,
+		m.DropdownOpen,
+		m.DropdownCursor,
+	)
+
 	deck := m.Viewport.View()
 
 	scrollPercent := int(m.Viewport.ScrollPercent() * 100)
@@ -152,6 +205,23 @@ func (m AppModel) View() tea.View {
 	view.AltScreen = true
 
 	return view
+}
+
+func getFilterOptions(filterIdx int) []string {
+	switch filterIdx {
+	case 0:
+		return []string{"Last 7 Days", "Last 30 Days", "Today", "All Time"}
+	case 1:
+		return []string{"All", "hackatime-tui", "kasumi", "skora-backend"}
+	case 2:
+		return []string{"All", "Rust", "Python", "Go", "Svelte"}
+	case 3:
+		return []string{"All", "Linux", "Mac", "Windows"}
+	case 4:
+		return []string{"All", "Neovim", "VSCode", "Zed"}
+	default:
+		return []string{"All"}
+	}
 }
 
 // renderDeck builds the scrollable wireframe slot grid, calculating equal

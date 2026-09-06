@@ -22,6 +22,8 @@ type KeyMap struct {
 	Bottom   key.Binding
 	TabNext  key.Binding
 	TabPrev  key.Binding
+	Select   key.Binding
+	Cancel   key.Binding
 	Quit     key.Binding
 }
 
@@ -67,6 +69,8 @@ var Keys = KeyMap{
 		key.WithKeys("shift+tab"),
 		key.WithHelp("shift+tab/h", "prev tab"),
 	),
+	Select: key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
+	Cancel: key.NewBinding(key.WithKeys("esc"), key.WithHelp("essc", "escape/cancel")),
 	Quit: key.NewBinding(
 		key.WithKeys("q", "ctrl+c"),
 		key.WithHelp("q", "quit"),
