@@ -48,6 +48,14 @@ func renderFixedHeader(width int,
 	// we would ever need to add or remove any of these.
 	tabNames := []string{"Home", "Project", "Settings"}
 	var navLines strings.Builder
+
+	if activeZone == FocusNav {
+		navLines.WriteString(ActiveTabStyle.Render("NAV MENU"))
+		navLines.WriteString("\n")
+	} else {
+		navLines.WriteString(DimText.Render("NAV MENU"))
+		navLines.WriteString("\n")
+	}
 	for i, name := range tabNames {
 		line := DimText.Render(fmt.Sprintf("  %s", name))
 		if i == currentTab {

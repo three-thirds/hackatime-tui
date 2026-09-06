@@ -4,6 +4,7 @@ package app
 
 import (
 	"fmt"
+	"strings"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/viewport"
@@ -195,9 +196,21 @@ func (m AppModel) View() tea.View {
 
 	deck := m.Viewport.View()
 
+	var modeBadge string
+	switch m.ActiveZone {
+	case FocusNav:
+		modeBadge = ActiveTabStyle.Render("[NAV]") + DimText.Render(" (j/k switch tab • Tab next zone)")
+	case FocusFilter:
+		modeBadge = ActiveTabStyle.Render("[FILTERS]") + DimText.Render(" (h/l select • Enter open • Tab next zone)")
+	case FocusDeck:
+		modeBadge = ActiveTabStyle.Render("[DECK]") + DimText.Render(" (j/k scroll • Tab next zone)")
+	}
+
 	scrollPercent := int(m.Viewport.ScrollPercent() * 100)
-	footer := DimText.Render(lipgloss.PlaceHorizontal(m.Width, lipgloss.Right,
-		fmt.Sprintf("Scroll: %d%% │ [j/k/↑/↓] Scroll │ [h/l/Tab] Nav │ [q] Quit ", scrollPercent)))
+	rightInfo := DimText.Render(fmt.Sprintf("Scroll: %d%% │ [q] Quit ", scrollPercent))
+
+	gap := max(m.Width-lipgloss.Width(modeBadge)-lipgloss.Width(rightInfo), 1)
+	footer := lipgloss.JoinHorizontal(lipgloss.Top, modeBadge, strings.Repeat(" ", gap), rightInfo)
 
 	fullUI := lipgloss.JoinVertical(lipgloss.Left, header, deck, footer)
 
