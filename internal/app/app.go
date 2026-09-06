@@ -26,6 +26,7 @@ type AppModel struct {
 	FilterValues   [5]string      // Commited selection for each filter
 	DropdownOpen   bool           // Whether the options dropdown is open
 	DropdownCursor int            // Selected index inside the open dropdown
+	Data           model.DashboardData
 }
 
 type ActiveZone int
@@ -48,6 +49,7 @@ func NewApp() AppModel {
 			"All",
 			"All",
 		},
+		Data: model.GetMockDashboardData(),
 	}
 }
 
