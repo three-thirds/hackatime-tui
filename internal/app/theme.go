@@ -4,7 +4,11 @@
 
 package app
 
-import "charm.land/lipgloss/v2"
+import (
+	"image/color"
+
+	"charm.land/lipgloss/v2"
+)
 
 // Official Dracula Palette
 var (
@@ -80,4 +84,25 @@ var (
 				Foreground(DraculaBg).
 				Background(DraculaPurple).
 				Padding(0, 1)
+)
+
+// Chart palettes. ChartPalette is cycled across the bars of a breakdown chart,
+// HeatmapLevels maps a HeatmapDay.Level (0-4) onto its intensity.
+var (
+	ChartPalette = []color.Color{
+		DraculaCyan,
+		DraculaPurple,
+		DraculaPink,
+		DraculaGreen,
+		DraculaOrange,
+		DraculaYellow,
+	}
+
+	HeatmapLevels = []color.Color{
+		DraculaSelection,
+		lipgloss.Color("#1F5B34"),
+		lipgloss.Color("#2E8B4F"),
+		lipgloss.Color("#3FCB68"),
+		DraculaGreen,
+	}
 )
