@@ -16,18 +16,38 @@ import (
 // AppModel holds important central state of entire applications
 // it includes dimensions of terminal, currently active Tab, state of viewport, etc.
 type AppModel struct {
-	Width      int                 // Width of terminal screen
-	Height     int                 // Height of terminal screen
-	CurrentTab int                 // Currently selected tab on TUI
-	Viewport   viewport.Model      // State of viewport
-	Ready      bool                // Whether the app is ready to be rendered or not
-	Data       model.DashboardData // Local seed data used by widgets during UI development
+	Width          int            // Width of terminal screen
+	Height         int            // Height of terminal screen
+	CurrentTab     int            // Currently selected tab on TUI
+	Viewport       viewport.Model // State of viewport
+	Ready          bool           // Whether the app is ready to be rendered or not
+	ActiveZone     ActiveZone     // Currently Focused interative area
+	ActiveFilter   int            // Currently focused filter button
+	FilterValues   [5]string      // Commited selection for each filter
+	DropdownOpen   bool           // Whether the options dropdown is open
+	DropdownCursor int            // Selected index inside the open dropdown
 }
+
+type ActiveZone int
+
+const (
+	FocusNav ActiveZone = iota
+	FocusFilter
+	FocusDeck
+)
 
 func NewApp() AppModel {
 	return AppModel{
-		CurrentTab: 0,
-		Data:       model.GetMockDashboardData(),
+		CurrentTab:   0,
+		ActiveZone:   FocusNav,
+		ActiveFilter: 0,
+		FilterValues: [5]string{
+			"Last 7 Days",
+			"All",
+			"All",
+			"All",
+			"All",
+		},
 	}
 }
 
@@ -45,9 +65,17 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Width = msg.Width
 		m.Height = msg.Height
 
-		headerContent := renderFixedHeader(m.Width, m.CurrentTab)
-		headerHeight := lipgloss.Height(headerContent)
+		headerContent := renderFixedHeader(
+			m.Width,
+			m.CurrentTab,
+			m.ActiveZone,
+			m.ActiveFilter,
+			m.FilterValues,
+			m.DropdownOpen,
+			m.DropdownCursor,
+		)
 
+		headerHeight := lipgloss.Height(headerContent)
 		footerHeight := 1
 		viewportHeight := max(m.Height-headerHeight-footerHeight, 5)
 
@@ -63,32 +91,87 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyPressMsg:
-		switch {
-		case key.Matches(msg, Keys.Quit):
+		if key.Matches(msg, Keys.Quit) {
 			return m, tea.Quit
-
-		case key.Matches(msg, Keys.TabNext):
-			m.CurrentTab = (m.CurrentTab + 1) % 3
-			m.Viewport.SetContent(m.renderDeck())
+		}
+		if key.Matches(msg, Keys.TabNext) {
+			m.ActiveZone = (m.ActiveZone + 1) % 3
 			return m, nil
-
-		case key.Matches(msg, Keys.TabPrev):
-			if m.CurrentTab == 0 {
-				m.CurrentTab = 2
-			} else {
-				m.CurrentTab--
-			}
-			m.Viewport.SetContent(m.renderDeck())
-			return m, nil
-
-		case key.Matches(msg, Keys.Up), key.Matches(msg, Keys.Down),
-			key.Matches(msg, Keys.PageUp), key.Matches(msg, Keys.PageDown),
-			key.Matches(msg, Keys.Top), key.Matches(msg, Keys.Bottom):
-
-			m.Viewport, cmd = m.Viewport.Update(msg)
-			return m, cmd
+		}
+		switch m.ActiveZone {
+		case FocusNav:
+			return m.handleNavKeys(msg)
+		case FocusFilter:
+			return m.handleFilterKeys(msg)
+		case FocusDeck:
+			return m.handleDeckKeys(msg)
 		}
 	}
+	return m, cmd
+}
+
+func (m AppModel) handleNavKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, Keys.Down):
+		m.CurrentTab = (m.CurrentTab + 1) % 3
+		m.Viewport.SetContent(m.renderDeck())
+		return m, nil
+
+	case key.Matches(msg, Keys.Up):
+		if m.CurrentTab == 0 {
+			m.CurrentTab = 2
+		} else {
+			m.CurrentTab--
+		}
+		m.Viewport.SetContent(m.renderDeck())
+		return m, nil
+	}
+
+	return m, nil
+}
+
+func (m AppModel) handleFilterKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	options := getFilterOptions(m.ActiveFilter)
+
+	if m.DropdownOpen {
+		switch {
+		case key.Matches(msg, Keys.Down):
+			m.DropdownCursor = (m.DropdownCursor + 1) % len(options)
+		case key.Matches(msg, Keys.Up):
+			if m.DropdownCursor <= 0 {
+				m.DropdownCursor = len(options) - 1
+			} else {
+				m.DropdownCursor--
+			}
+		case key.Matches(msg, Keys.Select):
+			m.FilterValues[m.ActiveFilter] = options[m.DropdownCursor]
+			m.DropdownOpen = false
+
+		case key.Matches(msg, Keys.Cancel):
+			m.DropdownOpen = false
+		}
+		return m, nil
+	}
+	switch {
+	case key.Matches(msg, Keys.Right):
+		m.ActiveFilter = (m.ActiveFilter + 1) % 5
+
+	case key.Matches(msg, Keys.Left):
+		if m.ActiveFilter <= 0 {
+			m.ActiveFilter = 4
+		} else {
+			m.ActiveFilter--
+		}
+
+	case key.Matches(msg, Keys.Select):
+		m.DropdownOpen = true
+		m.DropdownCursor = 0
+	}
+	return m, nil
+}
+
+func (m AppModel) handleDeckKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
 	m.Viewport, cmd = m.Viewport.Update(msg)
 	return m, cmd
 }
@@ -102,12 +185,33 @@ func (m AppModel) View() tea.View {
 		return v
 	}
 
-	header := renderFixedHeader(m.Width, m.CurrentTab)
+	header := renderFixedHeader(
+		m.Width,
+		m.CurrentTab,
+		m.ActiveZone,
+		m.ActiveFilter,
+		m.FilterValues,
+		m.DropdownOpen,
+		m.DropdownCursor,
+	)
+
 	deck := m.Viewport.View()
 
+	var modeBadge string
+	switch m.ActiveZone {
+	case FocusNav:
+		modeBadge = ActiveTabStyle.Render("[NAV]") + DimText.Render(" (j/k switch tab • Tab next zone)")
+	case FocusFilter:
+		modeBadge = ActiveTabStyle.Render("[FILTERS]") + DimText.Render(" (h/l select • Enter open • Tab next zone)")
+	case FocusDeck:
+		modeBadge = ActiveTabStyle.Render("[DECK]") + DimText.Render(" (j/k scroll • Tab next zone)")
+	}
+
 	scrollPercent := int(m.Viewport.ScrollPercent() * 100)
-	footer := DimText.Render(lipgloss.PlaceHorizontal(m.Width, lipgloss.Right,
-		fmt.Sprintf("Scroll: %d%% │ [j/k/↑/↓] Scroll │ [h/l/Tab] Nav │ [q] Quit ", scrollPercent)))
+	rightInfo := DimText.Render(fmt.Sprintf("Scroll: %d%% │ [q] Quit ", scrollPercent))
+
+	gap := max(m.Width-lipgloss.Width(modeBadge)-lipgloss.Width(rightInfo), 1)
+	footer := lipgloss.JoinHorizontal(lipgloss.Top, modeBadge, strings.Repeat(" ", gap), rightInfo)
 
 	fullUI := lipgloss.JoinVertical(lipgloss.Left, header, deck, footer)
 
@@ -117,8 +221,25 @@ func (m AppModel) View() tea.View {
 	return view
 }
 
-// renderDeck builds the scrollable widget grid, sizing every card off the
-// shared deck geometry so columns line up and gaps stay even.
+func getFilterOptions(filterIdx int) []string {
+	switch filterIdx {
+	case 0:
+		return []string{"Last 7 Days", "Last 30 Days", "Today", "All Time"}
+	case 1:
+		return []string{"All", "hackatime-tui", "kasumi", "skora-backend"}
+	case 2:
+		return []string{"All", "Rust", "Python", "Go", "Svelte"}
+	case 3:
+		return []string{"All", "Linux", "Mac", "Windows"}
+	case 4:
+		return []string{"All", "Neovim", "VSCode", "Zed"}
+	default:
+		return []string{"All"}
+	}
+}
+
+// renderDeck builds the scrollable wireframe slot grid, calculating equal
+// half-width and full-width card dimensions to match the terminal bounds.
 func (m AppModel) renderDeck() string {
 	halfW := halfCardWidth(m.Width)
 	fullW := fullCardWidth(m.Width)

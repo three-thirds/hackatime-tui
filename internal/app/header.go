@@ -15,7 +15,14 @@ import (
 // renderFixedHeader renders the Header with the info about width and currently selectedTab
 // this info is supposed to be received from central state model `AppModel`
 // It returns the widget string with user Info, filter tabs, navigation panels and high level summaries.
-func renderFixedHeader(width int, currentTab int) string {
+func renderFixedHeader(width int,
+	currentTab int,
+	activeZone ActiveZone,
+	activeFilter int,
+	filterValues [5]string,
+	dropdownOpen bool,
+	dropdownCursor int,
+) string {
 	if width < 50 {
 		return "Terminal width is too small"
 	}
@@ -43,6 +50,14 @@ func renderFixedHeader(width int, currentTab int) string {
 	// we would ever need to add or remove any of these.
 	tabNames := []string{"Home", "Project", "Settings"}
 	var navLines strings.Builder
+
+	if activeZone == FocusNav {
+		navLines.WriteString(ActiveTabStyle.Render("NAV MENU"))
+		navLines.WriteString("\n")
+	} else {
+		navLines.WriteString(DimText.Render("NAV MENU"))
+		navLines.WriteString("\n")
+	}
 	for i, name := range tabNames {
 		line := DimText.Render(fmt.Sprintf("  %s", name))
 		if i == currentTab {
@@ -56,19 +71,56 @@ func renderFixedHeader(width int, currentTab int) string {
 	}
 	navBox := lipgloss.NewStyle().Width(leftColWidth).Render(navLines.String())
 
-	filterBar := FilterBarStyle.Render("[Date: All Time ▾] [Project: All ▾] [Lang: All ▾] [OS: All ▾] [Editor: All ▾]")
+	filterLabels := []string{
+		fmt.Sprintf("Date: %s ▾", filterValues[0]),
+		fmt.Sprintf("Project: %s ▾", filterValues[1]),
+		fmt.Sprintf("Lang: %s ▾", filterValues[2]),
+		fmt.Sprintf("OS: %s ▾", filterValues[3]),
+		fmt.Sprintf("Editor: %s ▾", filterValues[4]),
+	}
 
 	// clamps the width of card to atleast 10 to avoid panic
 	cardW := max((rightColWidth-8)/5, 10)
 
-	c1 := renderCard("TOTAL TIME", "--h --m", cardW)
-	c2 := renderCard("TOP PROJECT", "--", cardW)
-	c3 := renderCard("TOP LANGUAGE", "--", cardW)
-	c4 := renderCard("TOP OS", "--", cardW)
-	c5 := renderCard("TOP EDITOR", "--", cardW)
-	cardsRow := lipgloss.JoinHorizontal(lipgloss.Top, c1, c2, c3, c4, c5)
+	var renderedFilter []string
+	for i, name := range filterLabels {
+		if i == activeFilter && activeZone == FocusFilter {
+			styled := ActiveTabStyle.Render(fmt.Sprintf("[%s]", name))
+			renderedFilter = append(renderedFilter, styled)
+		} else {
+			styled := FilterBarStyle.Render(fmt.Sprintf("[%s]", name))
+			renderedFilter = append(renderedFilter, styled)
+		}
+	}
 
-	rightBlock := lipgloss.JoinVertical(lipgloss.Left, filterBar, cardsRow)
+	filterBar := strings.Join(renderedFilter, " ")
+
+	var bottomBlock string
+
+	if dropdownOpen && activeZone == FocusFilter {
+		options := getFilterOptions(activeFilter)
+		var optionLines []string
+		for idx, opt := range options {
+			if idx == dropdownCursor {
+				optionLines = append(optionLines, ActiveTabStyle.Render(fmt.Sprintf("  ▸ %s", opt)))
+			} else {
+				optionLines = append(optionLines, DimText.Render(fmt.Sprintf("    %s", opt)))
+			}
+		}
+
+		boxContent := fmt.Sprintf("Select %s:\n%s", filterLabels[activeFilter], strings.Join(optionLines, "\n"))
+		bottomBlock = CardBorder.Width(rightColWidth - 4).Render(boxContent)
+	} else {
+
+		c1 := renderCard("TOTAL TIME", "--h --m", cardW)
+		c2 := renderCard("TOP PROJECT", "--", cardW)
+		c3 := renderCard("TOP LANGUAGE", "--", cardW)
+		c4 := renderCard("TOP OS", "--", cardW)
+		c5 := renderCard("TOP EDITOR", "--", cardW)
+		bottomBlock = lipgloss.JoinHorizontal(lipgloss.Top, c1, c2, c3, c4, c5)
+	}
+
+	rightBlock := lipgloss.JoinVertical(lipgloss.Left, filterBar, bottomBlock)
 	middleRow := lipgloss.JoinHorizontal(lipgloss.Top, navBox, " │ ", rightBlock)
 
 	fullHeader := lipgloss.JoinVertical(lipgloss.Left, topRow, divider, middleRow)
