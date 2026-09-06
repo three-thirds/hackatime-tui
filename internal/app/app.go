@@ -10,6 +10,7 @@ import (
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/three-thirds/hackatime-tui/internal/model"
 )
 
 // AppModel holds important central state of entire applications
@@ -240,23 +241,37 @@ func getFilterOptions(filterIdx int) []string {
 // renderDeck builds the scrollable wireframe slot grid, calculating equal
 // half-width and full-width card dimensions to match the terminal bounds.
 func (m AppModel) renderDeck() string {
-	halfW := m.Width / 2
-	fullW := halfW * 2
+	halfW := halfCardWidth(m.Width)
+	fullW := fullCardWidth(m.Width)
+	gap := strings.Repeat(" ", columnGap)
 
-	r1Left := RenderSlot("Project Durations", halfW, 9, "Horizontal bar chart of Projects")
-	r1Right := RenderSlot("Languages", halfW, 9, "Language % breakdown bar chart")
-	row1 := lipgloss.JoinHorizontal(lipgloss.Top, r1Left, r1Right)
+	row1 := lipgloss.JoinHorizontal(lipgloss.Top,
+		RenderProjectDurationsWidget(halfW, m.Data.Projects), gap,
+		RenderLanguagesWidget(halfW, m.Data.Languages))
 
-	r2Left := RenderSlot("Editors", halfW, 8, "Editor % breakdown progress bars")
-	r2Right := RenderSlot("Operating Systems", halfW, 8, "OS % breakdown progress bars")
-	row2 := lipgloss.JoinHorizontal(lipgloss.Top, r2Left, r2Right)
+	row2 := lipgloss.JoinHorizontal(lipgloss.Top,
+		RenderEditorsWidget(halfW, m.Data.Editors), gap,
+		RenderOperatingSystemsWidget(halfW, m.Data.OSList))
 
-	row3 := RenderSlot("Project Timeline (Stacked Weekly Activity)", fullW, 10, "Weekly activity bar chart")
-	row4 := RenderSlot("Coding Rhythm (Activity Heatmap)", fullW, 11, "GitHub-style / Rhythm activity heatmap")
+	row3 := RenderTimelineWidget(fullW, 8, m.Data.Timeline)
+	row4 := RenderCodingRhythmWidget(fullW, m.Data.Heatmap)
 
-	r5Left := RenderSlot("Today's Goal", halfW, 8, "Goal progress ring / meter")
-	r5Right := RenderSlot("AI vs Human Coding", halfW, 8, "AI vs Human ratio split bar")
-	row5 := lipgloss.JoinHorizontal(lipgloss.Top, r5Left, r5Right)
+	row5 := lipgloss.JoinHorizontal(lipgloss.Top,
+		RenderGoalWidget(halfW, m.Data.GoalPercentage, m.Data.GoalStatusText, m.Data.GoalDetailText), gap,
+		RenderAIvsHumanWidget(halfW, m.Data.AIPercentage, m.Data.AITime, m.Data.HumanPercentage, m.Data.HumanTime))
 
-	return lipgloss.JoinVertical(lipgloss.Left, row1, row2, row3, row4, row5)
+	return joinRows(row1, row2, row3, row4, row5)
+}
+
+// joinRows stacks deck rows with rowGap blank lines between them so the cards
+// are not visually glued together.
+func joinRows(rows ...string) string {
+	spaced := make([]string, 0, len(rows)*2)
+	for i, row := range rows {
+		if i > 0 {
+			spaced = append(spaced, strings.Repeat("\n", rowGap-1))
+		}
+		spaced = append(spaced, row)
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, spaced...)
 }

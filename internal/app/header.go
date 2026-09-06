@@ -27,8 +27,10 @@ func renderFixedHeader(width int,
 		return "Terminal width is too small"
 	}
 
-	// basic layout info, calculated based on terminal's width
-	contentWidth := width - 4
+	// Basic layout info. The header shares the deck's grid so its border lines
+	// up with the cards scrolling underneath it.
+	headerWidth := fullCardWidth(width)
+	contentWidth := headerWidth - 2 // the header border sits inside headerWidth
 	leftColWidth := 22
 	rightColWidth := max(contentWidth-leftColWidth-3, 20)
 
@@ -122,7 +124,6 @@ func renderFixedHeader(width int,
 	middleRow := lipgloss.JoinHorizontal(lipgloss.Top, navBox, " │ ", rightBlock)
 
 	fullHeader := lipgloss.JoinVertical(lipgloss.Left, topRow, divider, middleRow)
-	headerWidth := (width / 2) * 2
 	return HeaderBorder.Width(headerWidth).Render(fullHeader)
 }
 
