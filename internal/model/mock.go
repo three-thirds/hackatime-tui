@@ -6,11 +6,12 @@ import "time"
 func GetMockDashboardData() DashboardData {
 	now := time.Now()
 
-	// Generate 30 days of mock heatmap activity
+	// Generate a year of mock heatmap activity so the rhythm widget fills out
+	// the way a real API response would
 	var mockHeatmap []HeatmapDay
-	for i := 29; i >= 0; i-- {
+	for i := 364; i >= 0; i-- {
 		day := now.AddDate(0, 0, -i)
-		level := (i * 7) % 5 // pseudo-random level between 0 and 4
+		level := mockActivityLevel(day)
 		mockHeatmap = append(mockHeatmap, HeatmapDay{
 			Date:     day,
 			Duration: time.Duration(level*2) * time.Hour,
@@ -87,4 +88,27 @@ func GetMockDashboardData() DashboardData {
 		HumanTime:       450*time.Hour + 58*time.Minute,
 		HumanPercentage: 93,
 	}
+}
+
+// mockActivityLevel derives a stable pseudo-random intensity (0-4) for a day,
+// with quieter weekends, so the heatmap looks like real activity without
+// needing a random seed.
+func mockActivityLevel(day time.Time) int {
+	// Integer hash (xorshift-multiply) so neighbouring days land on unrelated
+	// intensities instead of marching in a visible pattern.
+	hash := uint32(day.Year()*1000 + day.YearDay())
+	hash ^= hash >> 15
+	hash *= 2246822519
+	hash ^= hash >> 13
+	hash *= 3266489917
+	hash ^= hash >> 16
+	level := int(hash % 5)
+
+	if weekday := day.Weekday(); weekday == time.Saturday || weekday == time.Sunday {
+		level--
+	}
+	if level < 0 {
+		return 0
+	}
+	return level
 }

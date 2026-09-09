@@ -1,22 +1,33 @@
-// This file contains all keybinds required for TUI
+// This file stores keybinds for entire application
+// So if anybody wants to add a new functionality with a keybind following is the procedure
+// Define a functionality in KeyMap, then map the functionality with Keys in var Keys
+
 package app
 
 import (
 	"charm.land/bubbles/v2/key"
 )
 
+// KeyMap holds various different possible keys which would be
+// required by TUI, Is not really supposed to be changed...
+// TODO: Maybe we could add Search Binding here
 type KeyMap struct {
 	Up       key.Binding
 	Down     key.Binding
+	Left     key.Binding
+	Right    key.Binding
 	PageUp   key.Binding
 	PageDown key.Binding
 	Top      key.Binding
 	Bottom   key.Binding
 	TabNext  key.Binding
 	TabPrev  key.Binding
+	Select   key.Binding
+	Cancel   key.Binding
 	Quit     key.Binding
 }
 
+// Keys initializes the struct values with actual keyboard binds
 var Keys = KeyMap{
 	Up: key.NewBinding(
 		key.WithKeys("k", "up"),
@@ -25,6 +36,14 @@ var Keys = KeyMap{
 	Down: key.NewBinding(
 		key.WithKeys("j", "down"),
 		key.WithHelp("j/↓", "scroll down"),
+	),
+	Left: key.NewBinding(
+		key.WithKeys("h", "left"),
+		key.WithHelp("k/↑", "move left"),
+	),
+	Right: key.NewBinding(
+		key.WithKeys("l", "right"),
+		key.WithHelp("j/↓", "move right"),
 	),
 	PageUp: key.NewBinding(
 		key.WithKeys("ctrl+u", "u", "pgup"),
@@ -43,13 +62,15 @@ var Keys = KeyMap{
 		key.WithHelp("G/end", "bottom"),
 	),
 	TabNext: key.NewBinding(
-		key.WithKeys("tab", "l", "right"),
+		key.WithKeys("tab"),
 		key.WithHelp("tab/l", "next tab"),
 	),
 	TabPrev: key.NewBinding(
-		key.WithKeys("shift+tab", "h", "left"),
+		key.WithKeys("shift+tab"),
 		key.WithHelp("shift+tab/h", "prev tab"),
 	),
+	Select: key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
+	Cancel: key.NewBinding(key.WithKeys("esc"), key.WithHelp("essc", "escape/cancel")),
 	Quit: key.NewBinding(
 		key.WithKeys("q", "ctrl+c"),
 		key.WithHelp("q", "quit"),

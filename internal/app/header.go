@@ -1,3 +1,8 @@
+// This file consists with the logic to render Header
+// the header has user info, filtering options, navigation between
+// different tabs
+//
+
 package app
 
 import (
@@ -5,86 +10,127 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
-	"golang.org/x/text/width"
 )
 
-var (
-	headerBorderStyle = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("240"))
-
-	cardStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("238")).
-			Padding(0, 1)
-
-	accentStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("212"))
-
-	dimStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("242"))
-)
-
-func renderFixedHeader(width int, currentTab int) string {
+// renderFixedHeader renders the Header with the info about width and currently selectedTab
+// this info is supposed to be received from central state model `AppModel`
+// It returns the widget string with user Info, filter tabs, navigation panels and high level summaries.
+func renderFixedHeader(width int,
+	currentTab int,
+	activeZone ActiveZone,
+	activeFilter int,
+	filterValues [5]string,
+	dropdownOpen bool,
+	dropdownCursor int,
+) string {
 	if width < 50 {
 		return "Terminal width is too small"
 	}
 
-	contentWidth := width - 4
+	// Basic layout info. The header shares the deck's grid so its border lines
+	// up with the cards scrolling underneath it.
+	headerWidth := fullCardWidth(width)
+	contentWidth := headerWidth - 2 // the header border sits inside headerWidth
 	leftColWidth := 22
-	rightColWidth := contentWidth - leftColWidth - 3
+	rightColWidth := max(contentWidth-leftColWidth-3, 20)
 
-	if rightColWidth < 20 {
-		rightColWidth = 20
-	}
+	// TODO(chish/devaansh): Replace placeholder plaintext strings with data pulled from API
+	profileContent := fmt.Sprintf("[●] User\n%s", StreakStyle.Render("[0 day streak]"))
+	profileBox := lipgloss.NewStyle().Width(leftColWidth).Render(profileContent)
 
-	profileBox := lipgloss.NewStyle().Width(leftColWidth).Render("User \n[0 day streak]")
-	greetingBox := lipgloss.NewStyle().Width(rightColWidth).Render("Keep Track of Your Coding Time\nToday: 0h 00m logged using Neovim & VSCode")
+	todayTime := MetricValueStyle.Render("0h 00m")
+	greetingContent := fmt.Sprintf("Keep Track of Your Coding Time\nToday: %s logged using Neovim & VSCode", todayTime)
+	greetingBox := lipgloss.NewStyle().Width(rightColWidth).Render(greetingContent)
+
 	topRow := lipgloss.JoinHorizontal(lipgloss.Top, profileBox, " | ", greetingBox)
 
-	divider := dimStyle.Render(strings.Repeat("-", max(0, contentWidth)))
+	divider := DimText.Render(strings.Repeat("─", max(0, contentWidth)))
 
+	// The navigation builder, it renders the navigation list, only three, I don't think
+	// we would ever need to add or remove any of these.
 	tabNames := []string{"Home", "Project", "Settings"}
-	var navLines string
+	var navLines strings.Builder
+
+	if activeZone == FocusNav {
+		navLines.WriteString(ActiveTabStyle.Render("NAV MENU"))
+		navLines.WriteString("\n")
+	} else {
+		navLines.WriteString(DimText.Render("NAV MENU"))
+		navLines.WriteString("\n")
+	}
 	for i, name := range tabNames {
-		line := fmt.Sprintf("   %s", name)
+		line := DimText.Render(fmt.Sprintf("  %s", name))
 		if i == currentTab {
-			line = accentStyle.Render(fmt.Sprintf("> [%s]", name))
+			line = ActiveTabStyle.Render(fmt.Sprintf("> [%s]", name))
 		}
 		if i > 0 {
-			navLines += "\n"
+			navLines.WriteString("\n")
 		}
-		navLines += line
+		navLines.WriteString(line)
 
 	}
-	navBox := lipgloss.NewStyle().Width(leftColWidth).Render(navLines)
+	navBox := lipgloss.NewStyle().Width(leftColWidth).Render(navLines.String())
 
-	filterBar := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("75")).
-		Render("[Date: All Time ▾] [Project: All ▾] [Lang: All ▾] [OS: All ▾] [Editor: All ▾]")
-
-	cardW := (rightColWidth - 8) / 5
-	if cardW < 10 {
-		cardW = 10
+	filterLabels := []string{
+		fmt.Sprintf("Date: %s ▾", filterValues[0]),
+		fmt.Sprintf("Project: %s ▾", filterValues[1]),
+		fmt.Sprintf("Lang: %s ▾", filterValues[2]),
+		fmt.Sprintf("OS: %s ▾", filterValues[3]),
+		fmt.Sprintf("Editor: %s ▾", filterValues[4]),
 	}
 
-	c1 := renderCard("TOTAL TIME", "--h --m", cardW)
-	c2 := renderCard("TOP PROJECT", "--", cardW)
-	c3 := renderCard("TOP LANGUAGE", "--", cardW)
-	c4 := renderCard("TOP OS", "--", cardW)
-	c5 := renderCard("TOP EDITOR", "--", cardW)
-	cardsRow := lipgloss.JoinHorizontal(lipgloss.Top, c1, c2, c3, c4, c5)
+	// clamps the width of card to atleast 10 to avoid panic
+	cardW := max((rightColWidth-8)/5, 10)
 
-	rightBlock := lipgloss.JoinVertical(lipgloss.Left, filterBar, cardsRow)
+	var renderedFilter []string
+	for i, name := range filterLabels {
+		if i == activeFilter && activeZone == FocusFilter {
+			styled := ActiveTabStyle.Render(fmt.Sprintf("[%s]", name))
+			renderedFilter = append(renderedFilter, styled)
+		} else {
+			styled := FilterBarStyle.Render(fmt.Sprintf("[%s]", name))
+			renderedFilter = append(renderedFilter, styled)
+		}
+	}
+
+	filterBar := strings.Join(renderedFilter, " ")
+
+	var bottomBlock string
+
+	if dropdownOpen && activeZone == FocusFilter {
+		options := getFilterOptions(activeFilter)
+		var optionLines []string
+		for idx, opt := range options {
+			if idx == dropdownCursor {
+				optionLines = append(optionLines, ActiveTabStyle.Render(fmt.Sprintf("  ▸ %s", opt)))
+			} else {
+				optionLines = append(optionLines, DimText.Render(fmt.Sprintf("    %s", opt)))
+			}
+		}
+
+		boxContent := fmt.Sprintf("Select %s:\n%s", filterLabels[activeFilter], strings.Join(optionLines, "\n"))
+		bottomBlock = CardBorder.Width(rightColWidth - 4).Render(boxContent)
+	} else {
+
+		c1 := renderCard("TOTAL TIME", "--h --m", cardW)
+		c2 := renderCard("TOP PROJECT", "--", cardW)
+		c3 := renderCard("TOP LANGUAGE", "--", cardW)
+		c4 := renderCard("TOP OS", "--", cardW)
+		c5 := renderCard("TOP EDITOR", "--", cardW)
+		bottomBlock = lipgloss.JoinHorizontal(lipgloss.Top, c1, c2, c3, c4, c5)
+	}
+
+	rightBlock := lipgloss.JoinVertical(lipgloss.Left, filterBar, bottomBlock)
 	middleRow := lipgloss.JoinHorizontal(lipgloss.Top, navBox, " │ ", rightBlock)
 
 	fullHeader := lipgloss.JoinVertical(lipgloss.Left, topRow, divider, middleRow)
-	return headerBorderStyle.Width(width - 2).Render(fullHeader)
+	return HeaderBorder.Width(headerWidth).Render(fullHeader)
 }
 
+// renderCard draws simple cards with title and value
+// returns a small card, which can be later added into a deck
 func renderCard(title, val string, width int) string {
-	t := dimStyle.Render(title)
-	v := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255")).Render(val)
-	return cardStyle.Width(width).Render(fmt.Sprintf("%s\n%s", t, v))
+	t := MetricTitleStyle.Render(title)
+	v := MetricValueStyle.Render(val)
+	return CardBorder.Width(width).Render(fmt.Sprintf("%s\n%s", t, v))
 }
