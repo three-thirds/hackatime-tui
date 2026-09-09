@@ -11,5 +11,5 @@ func Test67(t *testing.T) {
 	client := NewClient(creds)
 	bleh, err := client.GetLast7Days()
 
-	t.Logf("bleh %v", bleh.Data.UserID)
-}	
+	t.Logf("bleh %v", bleh.Data.Projects)
+}
