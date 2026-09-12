@@ -46,7 +46,16 @@ func (c *Client) GetStatusToday() (*StatusToday, error) {
 }
 
 func (c *Client) GetLast7Days() (*Last7Days, error) {
-	url := c.creds.APIURL + "/users/current/stats/last_7_days"
+	return c.GetStats("last_7_days")
+}
+
+// GetStats fetches aggregate stats for a WakaTime-compatible range
+// (e.g. "today", "last_7_days", "last_30_days", "all_time").
+func (c *Client) GetStats(rangeName string) (*Last7Days, error) {
+	if rangeName == "" {
+		rangeName = "last_7_days"
+	}
+	url := c.creds.APIURL + "/users/current/stats/" + rangeName
 
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -62,11 +71,11 @@ func (c *Client) GetLast7Days() (*Last7Days, error) {
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get last 7 days stats: %s", response.Status)
+		return nil, fmt.Errorf("failed to get %s stats: %s", rangeName, response.Status)
 	}
 
 	var status Last7Days
-	if err:= json.NewDecoder(response.Body).Decode(&status); err != nil {
+	if err := json.NewDecoder(response.Body).Decode(&status); err != nil {
 		return nil, err
 	}
 

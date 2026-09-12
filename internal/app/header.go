@@ -8,8 +8,10 @@ package app
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"charm.land/lipgloss/v2"
+	"github.com/three-thirds/hackatime-tui/internal/model"
 )
 
 // renderFixedHeader renders the Header with the info about width and currently selectedTab
@@ -22,6 +24,7 @@ func renderFixedHeader(width int,
 	filterValues [5]string,
 	dropdownOpen bool,
 	dropdownCursor int,
+	data model.DashboardData,
 ) string {
 	if width < 50 {
 		return "Terminal width is too small"
@@ -34,12 +37,19 @@ func renderFixedHeader(width int,
 	leftColWidth := 22
 	rightColWidth := max(contentWidth-leftColWidth-3, 20)
 
-	// TODO(chish/devaansh): Replace placeholder plaintext strings with data pulled from API
-	profileContent := fmt.Sprintf("[●] User\n%s", StreakStyle.Render("[0 day streak]"))
+	username := data.Username
+	if username == "" {
+		username = "User"
+	}
+	profileContent := fmt.Sprintf("[●] %s\n%s", username, StreakStyle.Render(fmt.Sprintf("[%d day streak]", data.StreakDays)))
 	profileBox := lipgloss.NewStyle().Width(leftColWidth).Render(profileContent)
 
-	todayTime := MetricValueStyle.Render("0h 00m")
-	greetingContent := fmt.Sprintf("Keep Track of Your Coding Time\nToday: %s logged using Neovim & VSCode", todayTime)
+	todayTime := MetricValueStyle.Render(formatDuration(data.TodayLogged))
+	summary := data.TodaySummary
+	if summary == "" {
+		summary = "coding"
+	}
+	greetingContent := fmt.Sprintf("Keep Track of Your Coding Time\nToday: %s logged %s", todayTime, summary)
 	greetingBox := lipgloss.NewStyle().Width(rightColWidth).Render(greetingContent)
 
 	topRow := lipgloss.JoinHorizontal(lipgloss.Top, profileBox, " | ", greetingBox)
@@ -98,7 +108,19 @@ func renderFixedHeader(width int,
 	var bottomBlock string
 
 	if dropdownOpen && activeZone == FocusFilter {
-		options := getFilterOptions(activeFilter)
+		options := breakdownNames(nil)
+		switch activeFilter {
+		case 0:
+			options = []string{"Last 7 Days", "Last 30 Days", "Today", "All Time"}
+		case 1:
+			options = breakdownNames(data.Projects)
+		case 2:
+			options = breakdownNames(data.Languages)
+		case 3:
+			options = breakdownNames(data.OSList)
+		case 4:
+			options = breakdownNames(data.Editors)
+		}
 		var optionLines []string
 		for idx, opt := range options {
 			if idx == dropdownCursor {
@@ -111,12 +133,11 @@ func renderFixedHeader(width int,
 		boxContent := fmt.Sprintf("Select %s:\n%s", filterLabels[activeFilter], strings.Join(optionLines, "\n"))
 		bottomBlock = CardBorder.Width(rightColWidth - 4).Render(boxContent)
 	} else {
-
-		c1 := renderCard("TOTAL TIME", "--h --m", cardW)
-		c2 := renderCard("TOP PROJECT", "--", cardW)
-		c3 := renderCard("TOP LANGUAGE", "--", cardW)
-		c4 := renderCard("TOP OS", "--", cardW)
-		c5 := renderCard("TOP EDITOR", "--", cardW)
+		c1 := renderCard("TOTAL TIME", formatOrDash(data.TotalTime), cardW)
+		c2 := renderCard("TOP PROJECT", stringOrDash(data.TopProject), cardW)
+		c3 := renderCard("TOP LANGUAGE", stringOrDash(data.TopLanguage), cardW)
+		c4 := renderCard("TOP OS", stringOrDash(data.TopOS), cardW)
+		c5 := renderCard("TOP EDITOR", stringOrDash(data.TopEditor), cardW)
 		bottomBlock = lipgloss.JoinHorizontal(lipgloss.Top, c1, c2, c3, c4, c5)
 	}
 
@@ -133,4 +154,18 @@ func renderCard(title, val string, width int) string {
 	t := MetricTitleStyle.Render(title)
 	v := MetricValueStyle.Render(val)
 	return CardBorder.Width(width).Render(fmt.Sprintf("%s\n%s", t, v))
+}
+
+func stringOrDash(value string) string {
+	if value == "" {
+		return "--"
+	}
+	return value
+}
+
+func formatOrDash(d time.Duration) string {
+	if d <= 0 {
+		return "--"
+	}
+	return formatDuration(d)
 }

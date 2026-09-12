@@ -11,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/three-thirds/hackatime-tui/internal/model"
+	"github.com/three-thirds/hackatime-tui/pkg/api"
 )
 
 // AppModel holds important central state of entire applications
@@ -27,6 +28,9 @@ type AppModel struct {
 	DropdownOpen   bool           // Whether the options dropdown is open
 	DropdownCursor int            // Selected index inside the open dropdown
 	Data           model.DashboardData
+	client         *api.Client
+	Loading        bool
+	LoadErr        string
 }
 
 type ActiveZone int
@@ -38,7 +42,7 @@ const (
 )
 
 func NewApp() AppModel {
-	return AppModel{
+	m := AppModel{
 		CurrentTab:   0,
 		ActiveZone:   FocusNav,
 		ActiveFilter: 0,
@@ -49,12 +53,24 @@ func NewApp() AppModel {
 			"All",
 			"All",
 		},
-		Data: model.GetMockDashboardData(),
+		Loading: true,
 	}
+
+	creds, err := api.LoadWakatimeConfig()
+	if err != nil {
+		m.LoadErr = err.Error()
+		m.Loading = false
+		return m
+	}
+	m.client = api.NewClient(creds)
+	return m
 }
 
 func (m AppModel) Init() tea.Cmd {
-	return nil
+	if m.client == nil {
+		return nil
+	}
+	return loadDashboardCmd(m.client, m.FilterValues[0])
 }
 
 // Update handles incoming Bubble Tea messages, including terminal window resizing,
@@ -63,6 +79,19 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
+	case dataLoadedMsg:
+		m.Loading = false
+		if msg.err != nil {
+			m.LoadErr = msg.err.Error()
+			return m, nil
+		}
+		m.LoadErr = ""
+		m.Data = msg.data
+		if m.Ready {
+			m.Viewport.SetContent(m.renderDeck())
+		}
+		return m, nil
+
 	case tea.WindowSizeMsg:
 		m.Width = msg.Width
 		m.Height = msg.Height
@@ -75,6 +104,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.FilterValues,
 			m.DropdownOpen,
 			m.DropdownCursor,
+			m.Data,
 		)
 
 		headerHeight := lipgloss.Height(headerContent)
@@ -133,7 +163,7 @@ func (m AppModel) handleNavKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m AppModel) handleFilterKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	options := getFilterOptions(m.ActiveFilter)
+	options := m.getFilterOptions(m.ActiveFilter)
 
 	if m.DropdownOpen {
 		switch {
@@ -146,8 +176,17 @@ func (m AppModel) handleFilterKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				m.DropdownCursor--
 			}
 		case key.Matches(msg, Keys.Select):
+			prevDate := m.FilterValues[0]
 			m.FilterValues[m.ActiveFilter] = options[m.DropdownCursor]
 			m.DropdownOpen = false
+			m.Viewport.SetContent(m.renderDeck())
+
+			if m.ActiveFilter == 0 && m.FilterValues[0] != prevDate && m.client != nil {
+				m.Loading = true
+				m.LoadErr = ""
+				m.Viewport.SetContent(m.renderDeck())
+				return m, loadDashboardCmd(m.client, m.FilterValues[0])
+			}
 
 		case key.Matches(msg, Keys.Cancel):
 			m.DropdownOpen = false
@@ -182,7 +221,7 @@ func (m AppModel) handleDeckKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // top header, the scrollable widget deck, and the status footer.
 func (m AppModel) View() tea.View {
 	if !m.Ready {
-		v := tea.NewView("Initializing Wireframe...")
+		v := tea.NewView("Initializing dashboard...")
 		v.AltScreen = true
 		return v
 	}
@@ -195,6 +234,7 @@ func (m AppModel) View() tea.View {
 		m.FilterValues,
 		m.DropdownOpen,
 		m.DropdownCursor,
+		m.Data,
 	)
 
 	deck := m.Viewport.View()
@@ -210,7 +250,13 @@ func (m AppModel) View() tea.View {
 	}
 
 	scrollPercent := int(m.Viewport.ScrollPercent() * 100)
-	rightInfo := DimText.Render(fmt.Sprintf("Scroll: %d%% │ [q] Quit ", scrollPercent))
+	statusRight := fmt.Sprintf("Scroll: %d%% │ [q] Quit ", scrollPercent)
+	if m.Loading {
+		statusRight = "Loading… │ " + statusRight
+	} else if m.LoadErr != "" {
+		statusRight = "API error │ " + statusRight
+	}
+	rightInfo := DimText.Render(statusRight)
 
 	gap := max(m.Width-lipgloss.Width(modeBadge)-lipgloss.Width(rightInfo), 1)
 	footer := lipgloss.JoinHorizontal(lipgloss.Top, modeBadge, strings.Repeat(" ", gap), rightInfo)
@@ -223,18 +269,18 @@ func (m AppModel) View() tea.View {
 	return view
 }
 
-func getFilterOptions(filterIdx int) []string {
+func (m AppModel) getFilterOptions(filterIdx int) []string {
 	switch filterIdx {
 	case 0:
 		return []string{"Last 7 Days", "Last 30 Days", "Today", "All Time"}
 	case 1:
-		return []string{"All", "hackatime-tui", "kasumi", "skora-backend"}
+		return breakdownNames(m.Data.Projects)
 	case 2:
-		return []string{"All", "Rust", "Python", "Go", "Svelte"}
+		return breakdownNames(m.Data.Languages)
 	case 3:
-		return []string{"All", "Linux", "Mac", "Windows"}
+		return breakdownNames(m.Data.OSList)
 	case 4:
-		return []string{"All", "Neovim", "VSCode", "Zed"}
+		return breakdownNames(m.Data.Editors)
 	default:
 		return []string{"All"}
 	}
@@ -243,17 +289,29 @@ func getFilterOptions(filterIdx int) []string {
 // renderDeck builds the scrollable wireframe slot grid, calculating equal
 // half-width and full-width card dimensions to match the terminal bounds.
 func (m AppModel) renderDeck() string {
+	if m.Loading {
+		return DimText.Render("Loading live Hackatime data…")
+	}
+	if m.LoadErr != "" {
+		return DimText.Render("Failed to load API data: " + m.LoadErr)
+	}
+
 	halfW := halfCardWidth(m.Width)
 	fullW := fullCardWidth(m.Width)
 	gap := strings.Repeat(" ", columnGap)
 
+	projects := filterBreakdown(m.Data.Projects, m.FilterValues[1])
+	languages := filterBreakdown(m.Data.Languages, m.FilterValues[2])
+	systems := filterBreakdown(m.Data.OSList, m.FilterValues[3])
+	editors := filterBreakdown(m.Data.Editors, m.FilterValues[4])
+
 	row1 := lipgloss.JoinHorizontal(lipgloss.Top,
-		RenderProjectDurationsWidget(halfW, m.Data.Projects), gap,
-		RenderLanguagesWidget(halfW, m.Data.Languages))
+		RenderProjectDurationsWidget(halfW, projects), gap,
+		RenderLanguagesWidget(halfW, languages))
 
 	row2 := lipgloss.JoinHorizontal(lipgloss.Top,
-		RenderEditorsWidget(halfW, m.Data.Editors), gap,
-		RenderOperatingSystemsWidget(halfW, m.Data.OSList))
+		RenderEditorsWidget(halfW, editors), gap,
+		RenderOperatingSystemsWidget(halfW, systems))
 
 	row3 := RenderTimelineWidget(fullW, 8, m.Data.Timeline)
 	row4 := RenderCodingRhythmWidget(fullW, m.Data.Heatmap)
