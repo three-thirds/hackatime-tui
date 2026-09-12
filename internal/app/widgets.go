@@ -98,15 +98,20 @@ func RenderGoalWidget(width, percent int, status, detail string) string {
 // RenderAIvsHumanWidget renders the split between AI-assisted and hand-written
 // coding time.
 func RenderAIvsHumanWidget(width int, aiPercent int, aiTime time.Duration, humanPercent int, humanTime time.Duration) string {
+	segments := []SplitSegment{}
+	if aiPercent > 0 || humanPercent > 0 || aiTime > 0 || humanTime > 0 {
+		segments = []SplitSegment{
+			{Label: "AI", Percent: aiPercent, Detail: formatDuration(aiTime), Color: DraculaPink},
+			{Label: "Human", Percent: humanPercent, Detail: formatDuration(humanTime), Color: DraculaCyan},
+		}
+	}
+
 	return RenderSplitBar(SplitBarConfig{
 		Title:     "AI vs Human Coding",
 		Width:     width,
 		MinHeight: 6,
-		Segments: []SplitSegment{
-			{Label: "AI", Percent: aiPercent, Detail: formatDuration(aiTime), Color: DraculaPink},
-			{Label: "Human", Percent: humanPercent, Detail: formatDuration(humanTime), Color: DraculaCyan},
-		},
-		Empty: "No coding time recorded yet",
+		Segments:  segments,
+		Empty:     "No coding time recorded yet",
 	})
 }
 
